@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ──────────────────────────────────────────────
+
+enum Role {
+  COACH
+  ATHLETE
+}
+
+enum PlanStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum Mood {
+  GREAT
+  GOOD
+  OKAY
+  TOUGH
+  TERRIBLE
+}
+
+// ── Models ─────────────────────────────────────────────
+
+model User {
+  id           String          @id @default(cuid())
+  email        String          @unique
+  passwordHash String
+  role         Role
+  name         String
+  avatarUrl    String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  coachProfile   CoachProfile?
+  athleteProfile AthleteProfile?
+  feedbacks      Feedback[]
+  sessionLogs    SessionLog[]
+
+  @@map("users")
+}
+
+model CoachProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  bio       String?
+  specialty String?
+  createdAt DateTime @default(now())
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  athletes      AthleteProfile[]
+  trainingPlans TrainingPlan[]
+
+  @@map("coach_profiles")
+}
+
+model AthleteProfile {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  coachId     String
+  sport       String?
+  dateOfBirth DateTime?
+  createdAt   DateTime  @default(now())
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coach         CoachProfile   @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  trainingPlans TrainingPlan[]
+  sessionLogs   SessionLog[]
+
+  @@map("athlete_profiles")
+}
+
+model TrainingPlan {
+  id            String     @id @default(cuid())
+  athleteId     String
+  coachId       String
+  name          String
+  description   String?
+  weekStartDate DateTime
+  status        PlanStatus @default(DRAFT)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  athlete  AthleteProfile @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  coach    CoachProfile   @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  sessions PlanSession[]
+
+  @@map("training_plans")
+}
+
+model PlanSession {
+  id        String @id @default(cuid())
+  planId    String
+  dayOfWeek Int    // 0=Monday, 6=Sunday
+  title     String
+  type      String // e.g. "Strength", "Cardio", "Recovery"
+  order     Int
+  notes     String?
+
+  plan      TrainingPlan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+  exercises SessionExercise[]
+  logs      SessionLog[]
+
+  @@map("plan_sessions")
+}
+
+model SessionExercise {
+  id         String @id @default(cuid())
+  sessionId  String
+  name       String
+  sets       Int
+  reps       Int
+  weight     Float?  // in kg
+  duration   Int?    // in minutes
+  restPeriod Int?    // in seconds
+  notes      String?
+  order      Int
+
+  session PlanSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("session_exercises")
+}
+
+model SessionLog {
+  id          String    @id @default(cuid())
+  sessionId   String
+  athleteId   String
+  userId      String
+  completedAt DateTime
+  rpe         Int?      // 1-10 rating of perceived exertion
+  notes       String?
+  mood        Mood?
+  createdAt   DateTime  @default(now())
+
+  session  PlanSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  athlete  AthleteProfile @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feedback Feedback[]
+
+  @@map("session_logs")
+}
+
+model Feedback {
+  id           String   @id @default(cuid())
+  sessionLogId String
+  authorId     String
+  content      String
+  createdAt    DateTime @default(now())
+
+  sessionLog SessionLog @relation(fields: [sessionLogId], references: [id], onDelete: Cascade)
+  author     User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("feedbacks")
+}
