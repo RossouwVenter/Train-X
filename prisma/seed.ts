@@ -16,19 +16,20 @@ async function main() {
   await prisma.coachProfile.deleteMany()
   await prisma.user.deleteMany()
 
-  const passwordHash = await bcrypt.hash('password123', 10)
+  const coachPasswordHash = await bcrypt.hash('Tr@1nX!c0ach', 10)
+  const athletePasswordHash = await bcrypt.hash('Tr@1nX!4thlt', 10)
 
   // ── Coach ────────────────────────────────────────────
   const coachUser = await prisma.user.create({
     data: {
-      email: 'coach@trainx.dev',
-      passwordHash,
+      email: 'demo.coach@trainx.dev',
+      passwordHash: coachPasswordHash,
       role: Role.COACH,
-      name: 'Coach Demo',
+      name: 'Jordan Rivera',
       coachProfile: {
         create: {
           bio: 'Experienced multi-sport coach with 10+ years of training athletes at all levels.',
-          specialty: 'Strength & Conditioning',
+          specialty: 'Triathlon & Strength',
         },
       },
     },
@@ -39,9 +40,9 @@ async function main() {
 
   // ── Athletes ─────────────────────────────────────────
   const athleteData = [
+    { name: 'Sam Torres', email: 'demo.athlete@trainx.dev', sport: 'Triathlon' },
     { name: 'Alex Runner', email: 'alex@trainx.dev', sport: 'Running' },
     { name: 'Jordan Lifter', email: 'jordan@trainx.dev', sport: 'Weightlifting' },
-    { name: 'Sam Swimmer', email: 'sam@trainx.dev', sport: 'Swimming' },
   ]
 
   const athletes = await Promise.all(
@@ -49,7 +50,7 @@ async function main() {
       prisma.user.create({
         data: {
           email: a.email,
-          passwordHash,
+          passwordHash: athletePasswordHash,
           role: Role.ATHLETE,
           name: a.name,
           athleteProfile: {
@@ -158,6 +159,35 @@ async function main() {
         ],
       },
     ],
+    Triathlon: [
+      {
+        title: 'Monday — Swim Intervals',
+        type: 'Cardio',
+        exercises: [
+          { name: 'Warm-up Swim', sets: 1, reps: 1, duration: 10 },
+          { name: '100m Intervals', sets: 8, reps: 1, restPeriod: 30 },
+          { name: 'Kick Drills', sets: 4, reps: 1, duration: 3, restPeriod: 20 },
+        ],
+      },
+      {
+        title: 'Wednesday — Bike Tempo',
+        type: 'Cardio',
+        exercises: [
+          { name: 'Easy Spin Warm-up', sets: 1, reps: 1, duration: 15 },
+          { name: 'Tempo Ride', sets: 1, reps: 1, duration: 40 },
+          { name: 'Cool-down Spin', sets: 1, reps: 1, duration: 10 },
+        ],
+      },
+      {
+        title: 'Friday — Brick Session (Bike + Run)',
+        type: 'Cardio',
+        exercises: [
+          { name: 'Bike Ride', sets: 1, reps: 1, duration: 45 },
+          { name: 'Transition Run', sets: 1, reps: 1, duration: 20 },
+          { name: 'Stretching', sets: 1, reps: 1, duration: 10 },
+        ],
+      },
+    ],
   }
 
   const dayMap = [0, 2, 4] // Mon, Wed, Fri
@@ -230,8 +260,9 @@ async function main() {
   }
 
   console.log('✅ Seed complete')
-  console.log('   Coach: coach@trainx.dev / password123')
-  console.log('   Athletes: alex@trainx.dev, jordan@trainx.dev, sam@trainx.dev / password123')
+  console.log('   Coach: demo.coach@trainx.dev / Tr@1nX!c0ach')
+  console.log('   Athlete: demo.athlete@trainx.dev / Tr@1nX!4thlt')
+  console.log('   Other athletes: alex@trainx.dev, jordan@trainx.dev / Tr@1nX!4thlt')
 }
 
 main()
