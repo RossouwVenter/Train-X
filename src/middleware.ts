@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
-import type { NextRequest } from "next/server";
+import { auth } from "@/lib/auth";
 
 const publicRoutes = ["/", "/login", "/register", "/reset-password"];
 
-export async function middleware(req: NextRequest) {
+export default auth((req) => {
   const { pathname } = req.nextUrl;
 
   // Allow public routes, auth API, and admin API
@@ -16,7 +15,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = await getToken({ req, secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET });
+  const token = req.auth;
 
   // Redirect unauthenticated users to login
   if (!token) {
@@ -25,7 +24,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const role = token.role as string;
+  const role = token.user?.role as string;
 
   // Protect /coach routes — COACH only
   if (pathname.startsWith("/coach") && role !== "COACH") {
@@ -38,7 +37,7 @@ export async function middleware(req: NextRequest) {
   }
 
   return NextResponse.next();
-}
+});
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
