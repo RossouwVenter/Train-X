@@ -79,7 +79,14 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ data: user }, { status: 201 });
-  } catch {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message.includes("Can't reach database")) {
+      return NextResponse.json(
+        { error: "Database is currently unreachable. Please check your network connection and try again.", code: "DB_UNREACHABLE" },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
       { error: "Internal server error", code: "INTERNAL_ERROR" },
       { status: 500 }
