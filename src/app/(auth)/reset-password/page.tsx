@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { Mail, Lock, Loader2, CheckCircle } from "lucide-react";
 
@@ -69,7 +70,24 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      setSuccess(true);
+      // Auto sign-in after password reset
+      const signInResult = await signIn("credentials", {
+        email,
+        password: newPassword,
+        redirect: false,
+      });
+
+      if (signInResult?.error) {
+        // Reset succeeded but sign-in failed — show success and link to login
+        setSuccess(true);
+        return;
+      }
+
+      // Fetch session to get role for redirect
+      const sessionRes = await fetch("/api/auth/session");
+      const session = await sessionRes.json();
+      const role = session?.user?.role;
+      window.location.href = role === "COACH" ? "/coach" : "/athlete";
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
