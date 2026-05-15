@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import {
   Card,
   CardContent,
@@ -62,11 +63,31 @@ const stats = [
 ];
 
 export default function CoachProfilePage() {
+  const { data: session } = useSession();
+  const [athleteCount, setAthleteCount] = useState(0);
   const [planDuration, setPlanDuration] = useState("8");
   const [sessionsPerWeek, setSessionsPerWeek] = useState(4);
   const [feedbackReminders, setFeedbackReminders] = useState(true);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const { theme, setTheme } = useTheme();
+
+  const userName = session?.user?.name || "Coach";
+  const userEmail = session?.user?.email || "";
+  const initials = userName.split(" ").map((n) => n[0]).join("").toUpperCase();
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await fetch("/api/athletes");
+      if (res.ok) {
+        const json = await res.json();
+        setAthleteCount((json.data || []).length);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   function handleSaveSettings() {
     setSaveSuccess(true);
@@ -90,14 +111,14 @@ export default function CoachProfilePage() {
         <CardContent className="p-6">
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
             <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-amber-600 text-2xl font-bold text-white shadow-lg">
-              JR
+              {initials}
             </div>
             <div className="text-center sm:text-left">
               <h2 className="text-xl font-semibold text-foreground">
-                Jordan Rivera
+                {userName}
               </h2>
               <p className="text-sm text-muted-foreground">
-                demo.coach@trainx.dev
+                {userEmail}
               </p>
               <div className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start">
                 {SPECIALIZATIONS.map((spec) => (
@@ -120,7 +141,7 @@ export default function CoachProfilePage() {
                 <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                   Email
                 </p>
-                <p className="text-sm text-foreground">demo.coach@trainx.dev</p>
+                <p className="text-sm text-foreground">{userEmail}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 rounded-lg bg-muted/30 p-3">
@@ -138,7 +159,7 @@ export default function CoachProfilePage() {
                 <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                   Athletes
                 </p>
-                <p className="text-sm text-foreground">12 active</p>
+                <p className="text-sm text-foreground">{athleteCount} active</p>
               </div>
             </div>
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import {
   Card,
   CardContent,
@@ -43,6 +44,11 @@ import {
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
 export default function AthleteProfilePage() {
+  const { data: session } = useSession();
+  const userName = session?.user?.name || "Athlete";
+  const userEmail = session?.user?.email || "";
+  const initials = userName.split(" ").map((n) => n[0]).join("").toUpperCase();
+
   // Training preferences state
   const [preferredDays, setPreferredDays] = useState<boolean[]>([
     true,
@@ -87,14 +93,14 @@ export default function AthleteProfilePage() {
         <CardContent className="p-6">
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
             <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-amber-600 text-2xl font-bold text-white shadow-lg">
-              ST
+              {initials}
             </div>
             <div className="text-center sm:text-left">
               <h2 className="text-xl font-semibold text-foreground">
-                Sam Torres
+                {userName}
               </h2>
               <p className="text-sm text-muted-foreground">
-                demo.athlete@trainx.dev
+                {userEmail}
               </p>
               <div className="mt-3 flex flex-wrap justify-center gap-3 sm:justify-start">
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -121,7 +127,7 @@ export default function AthleteProfilePage() {
                   Email
                 </p>
                 <p className="text-sm text-foreground">
-                  demo.athlete@trainx.dev
+                  {userEmail}
                 </p>
               </div>
             </div>

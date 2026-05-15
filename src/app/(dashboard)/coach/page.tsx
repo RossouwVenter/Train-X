@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import {
   Card,
   CardContent,
@@ -18,119 +20,10 @@ import {
   CheckCircle2,
   MessageSquare,
   XCircle,
-  ArrowUpRight,
   Clock,
 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-
-const stats = [
-  {
-    title: "Total Athletes",
-    value: "24",
-    trend: "+3",
-    trendLabel: "this month",
-    trendUp: true,
-    icon: Users,
-  },
-  {
-    title: "Active Plans",
-    value: "12",
-    trend: "8",
-    trendLabel: "in progress",
-    trendUp: true,
-    icon: ClipboardList,
-  },
-  {
-    title: "Sessions This Week",
-    value: "28/36",
-    trend: "78%",
-    trendLabel: "completed",
-    trendUp: true,
-    icon: CalendarDays,
-  },
-  {
-    title: "Avg Compliance",
-    value: "87%",
-    trend: "+4%",
-    trendLabel: "vs last month",
-    trendUp: true,
-    icon: TrendingUp,
-  },
-];
-
-const recentActivity = [
-  {
-    text: "Sam Torres completed Upper Body Strength",
-    time: "25 min ago",
-    type: "completed" as const,
-  },
-  {
-    text: "Maria Chen left feedback on Cardio Intervals",
-    time: "1h ago",
-    type: "feedback" as const,
-  },
-  {
-    text: "Jake Wilson missed scheduled session",
-    time: "3h ago",
-    type: "missed" as const,
-  },
-  {
-    text: "Olivia Park completed HIIT Session A",
-    time: "5h ago",
-    type: "completed" as const,
-  },
-  {
-    text: "Liam Nguyen left feedback on Recovery Day",
-    time: "1d ago",
-    type: "feedback" as const,
-  },
-];
-
-const upcomingSessions = [
-  {
-    name: "Lower Body Power",
-    athlete: "Sam Torres",
-    date: "Today, 4:00 PM",
-    status: "upcoming" as const,
-  },
-  {
-    name: "Cardio Intervals",
-    athlete: "Maria Chen",
-    date: "Today, 5:30 PM",
-    status: "upcoming" as const,
-  },
-  {
-    name: "Mobility & Recovery",
-    athlete: "Jake Wilson",
-    date: "Tomorrow, 9:00 AM",
-    status: "scheduled" as const,
-  },
-  {
-    name: "Sprint Drills",
-    athlete: "Olivia Park",
-    date: "Tomorrow, 11:00 AM",
-    status: "scheduled" as const,
-  },
-  {
-    name: "Upper Body Hypertrophy",
-    athlete: "Liam Nguyen",
-    date: "Wed, 8:00 AM",
-    status: "scheduled" as const,
-  },
-];
-
-const activityIcons = {
-  completed: CheckCircle2,
-  feedback: MessageSquare,
-  missed: XCircle,
-};
-
-const activityColors = {
-  completed: "bg-emerald-500",
-  feedback: "bg-orange-500",
-  missed: "bg-red-500",
-};
 
 const container = {
   hidden: { opacity: 0 },
@@ -146,6 +39,70 @@ const item = {
 };
 
 export default function CoachDashboard() {
+  const { data: session } = useSession();
+  const [athleteCount, setAthleteCount] = useState(0);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await fetch("/api/athletes");
+      if (res.ok) {
+        const json = await res.json();
+        setAthleteCount((json.data || []).length);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const firstName = session?.user?.name?.split(" ")[0] || "Coach";
+
+  const stats = [
+    {
+      title: "Total Athletes",
+      value: String(athleteCount),
+      icon: Users,
+    },
+    {
+      title: "Active Plans",
+      value: "—",
+      icon: ClipboardList,
+    },
+    {
+      title: "Sessions This Week",
+      value: "—",
+      icon: CalendarDays,
+    },
+    {
+      title: "Avg Compliance",
+      value: "—",
+      icon: TrendingUp,
+    },
+  ];
+
+  const recentActivity = [
+    {
+      text: "Activity data loads from sessions",
+      time: "—",
+      type: "completed" as const,
+    },
+  ];
+
+  const upcomingSessions: { name: string; athlete: string; date: string; status: "upcoming" | "scheduled" }[] = [];
+
+  const activityIcons = {
+    completed: CheckCircle2,
+    feedback: MessageSquare,
+    missed: XCircle,
+  };
+
+  const activityColors = {
+    completed: "bg-emerald-500",
+    feedback: "bg-orange-500",
+    missed: "bg-red-500",
+  };
+
   return (
     <motion.div
       className="space-y-8"
@@ -158,7 +115,7 @@ export default function CoachDashboard() {
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
           Dashboard
         </h1>
-        <p className="text-muted-foreground">Welcome back, Coach</p>
+        <p className="text-muted-foreground">Welcome back, {firstName}</p>
       </motion.div>
 
       {/* Stat cards */}
@@ -176,17 +133,6 @@ export default function CoachDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stat.value}</div>
-                <div className="mt-1 flex items-center gap-1 text-xs">
-                  {stat.trendUp && (
-                    <ArrowUpRight className="h-3 w-3 text-emerald-500" />
-                  )}
-                  <span className="font-medium text-emerald-500">
-                    {stat.trend}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {stat.trendLabel}
-                  </span>
-                </div>
               </CardContent>
             </Card>
           </motion.div>
@@ -274,7 +220,7 @@ export default function CoachDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {upcomingSessions.map((session, i) => (
+                  {upcomingSessions.length > 0 ? upcomingSessions.map((session, i) => (
                     <div
                       key={i}
                       className="flex items-center gap-3 rounded-md border border-border/50 p-3 transition-colors hover:bg-muted/50"
@@ -305,7 +251,9 @@ export default function CoachDashboard() {
                         </span>
                       </div>
                     </div>
-                  ))}
+                  )) : (
+                    <p className="text-sm text-muted-foreground">No upcoming sessions</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
