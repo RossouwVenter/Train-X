@@ -132,6 +132,7 @@ export async function POST(request: Request) {
         email: newUser.email,
         sport: sport || "Not specified",
         createdAt: newUser.athleteProfile!.createdAt.toISOString(),
+        tempPassword,
       },
     }, { status: 201 });
   } catch (error) {

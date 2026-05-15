@@ -112,74 +112,6 @@ interface SessionHistory {
 
 // ─── Mock Data ──────────────────────────────────────────────────────────────
 
-const mockAthletes = [
-  {
-    id: "1",
-    name: "Sam Torres",
-    email: "sam.torres@email.com",
-    sport: "Track & Field",
-    status: "active" as const,
-    completionRate: 92,
-    lastActive: "2026-05-04",
-    joinedDate: "2025-09-15",
-    sessionsThisWeek: 4,
-    avgRpe: 7.2,
-    currentStreak: 12,
-  },
-  {
-    id: "2",
-    name: "Maria Chen",
-    email: "maria.chen@email.com",
-    sport: "Swimming",
-    status: "active" as const,
-    completionRate: 85,
-    lastActive: "2026-05-03",
-    joinedDate: "2025-11-02",
-    sessionsThisWeek: 3,
-    avgRpe: 6.8,
-    currentStreak: 7,
-  },
-  {
-    id: "3",
-    name: "Jake Wilson",
-    email: "jake.wilson@email.com",
-    sport: "CrossFit",
-    status: "active" as const,
-    completionRate: 78,
-    lastActive: "2026-05-01",
-    joinedDate: "2026-01-10",
-    sessionsThisWeek: 2,
-    avgRpe: 8.1,
-    currentStreak: 3,
-  },
-  {
-    id: "4",
-    name: "Aisha Patel",
-    email: "aisha.patel@email.com",
-    sport: "Yoga",
-    status: "inactive" as const,
-    completionRate: 45,
-    lastActive: "2026-04-10",
-    joinedDate: "2025-08-20",
-    sessionsThisWeek: 0,
-    avgRpe: 4.5,
-    currentStreak: 0,
-  },
-  {
-    id: "5",
-    name: "Carlos Ruiz",
-    email: "carlos.ruiz@email.com",
-    sport: "Boxing",
-    status: "active" as const,
-    completionRate: 88,
-    lastActive: "2026-05-05",
-    joinedDate: "2025-12-01",
-    sessionsThisWeek: 5,
-    avgRpe: 7.8,
-    currentStreak: 18,
-  },
-];
-
 const mockSessions: SessionHistory[] = [
   {
     id: "s1",
@@ -374,10 +306,50 @@ const tabMotion = {
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
+interface AthleteData {
+  id: string;
+  name: string;
+  email: string;
+  sport: string;
+  status: "active" | "inactive";
+  completionRate: number;
+  sessionsThisWeek: number;
+  avgRpe: number;
+  currentStreak: number;
+}
+
 export default function AthleteProfilePage() {
   const params = useParams();
   const router = useRouter();
-  const athlete = mockAthletes.find((a) => a.id === params.id);
+  const [athlete, setAthlete] = useState<AthleteData | null>(null);
+  const [loadingAthlete, setLoadingAthlete] = useState(true);
+
+  useEffect(() => {
+    async function fetchAthlete() {
+      try {
+        const res = await fetch("/api/athletes");
+        if (res.ok) {
+          const json = await res.json();
+          const found = (json.data || []).find((a: { id: string }) => a.id === params.id);
+          if (found) {
+            setAthlete({
+              id: found.id,
+              name: found.name || "Unknown",
+              email: found.email || "",
+              sport: found.sport || "Not specified",
+              status: "active",
+              completionRate: 0,
+              sessionsThisWeek: 0,
+              avgRpe: 0,
+              currentStreak: 0,
+            });
+          }
+        }
+      } catch {}
+      setLoadingAthlete(false);
+    }
+    fetchAthlete();
+  }, [params.id]);
 
   const [activeTab, setActiveTab] = useState("overview");
   const [feedbackMessages, setFeedbackMessages] = useState<FeedbackMessage[]>(initialFeedback);
@@ -527,6 +499,14 @@ export default function AthleteProfilePage() {
     setEditingSession(null);
   };
 
+  if (loadingAthlete) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <p className="text-muted-foreground">Loading athlete...</p>
+      </div>
+    );
+  }
+
   if (!athlete) {
     return (
       <div className="space-y-6">
@@ -554,7 +534,7 @@ export default function AthleteProfilePage() {
     .split(" ")
     .map((n) => n[0])
     .join("");
-  const colorIndex = parseInt(athlete.id, 10) % avatarColors.length;
+  const colorIndex = (athlete.id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0)) % avatarColors.length;
 
   const handleSendMessage = () => {
     if (!newMessage.trim()) return;

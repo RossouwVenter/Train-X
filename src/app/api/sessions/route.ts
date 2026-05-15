@@ -33,6 +33,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Authorization: coaches can only view their own athletes' sessions
+    if (session.user.role === "COACH") {
+      const coachProfile = await prisma.coachProfile.findUnique({
+        where: { userId: session.user.id },
+      });
+      if (!coachProfile) {
+        return NextResponse.json({ error: "Coach profile not found" }, { status: 403 });
+      }
+      const athleteBelongsToCoach = await prisma.athleteProfile.findFirst({
+        where: { id: athleteProfileId, coachId: coachProfile.id },
+      });
+      if (!athleteBelongsToCoach) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
+
     const weekStart = new Date(weekStartStr);
     weekStart.setHours(0, 0, 0, 0);
 
@@ -145,37 +161,38 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Delete existing sessions for this plan and recreate
-    await prisma.planSession.deleteMany({ where: { planId: plan.id } });
+    // Delete existing sessions for this plan and recreate (transactional)
+    await prisma.$transaction(async (tx) => {
+      await tx.planSession.deleteMany({ where: { planId: plan!.id } });
 
-    // Create new sessions
-    for (let i = 0; i < sessions.length; i++) {
-      const s = sessions[i];
-      await prisma.planSession.create({
-        data: {
-          planId: plan.id,
-          dayOfWeek: s.dayOfWeek,
-          title: s.title,
-          type: s.type || "General",
-          order: i,
-          notes: s.notes || s.workout || null,
-          exercises: s.exercises
-            ? {
-                create: s.exercises.map((ex: { name: string; sets?: number; reps?: number; weight?: number; duration?: number; restPeriod?: number; notes?: string }, idx: number) => ({
-                  name: ex.name,
-                  sets: ex.sets || 1,
-                  reps: ex.reps || 1,
-                  weight: ex.weight || null,
-                  duration: ex.duration || null,
-                  restPeriod: ex.restPeriod || null,
-                  notes: ex.notes || null,
-                  order: idx,
-                })),
-              }
-            : undefined,
-        },
-      });
-    }
+      for (let i = 0; i < sessions.length; i++) {
+        const s = sessions[i];
+        await tx.planSession.create({
+          data: {
+            planId: plan!.id,
+            dayOfWeek: s.dayOfWeek,
+            title: s.title,
+            type: s.type || "General",
+            order: i,
+            notes: s.notes || s.workout || null,
+            exercises: s.exercises
+              ? {
+                  create: s.exercises.map((ex: { name: string; sets?: number; reps?: number; weight?: number; duration?: number; restPeriod?: number; notes?: string }, idx: number) => ({
+                    name: ex.name,
+                    sets: ex.sets || 1,
+                    reps: ex.reps || 1,
+                    weight: ex.weight || null,
+                    duration: ex.duration || null,
+                    restPeriod: ex.restPeriod || null,
+                    notes: ex.notes || null,
+                    order: idx,
+                  })),
+                }
+              : undefined,
+          },
+        });
+      }
+    });
 
     // Return the updated plan
     const updatedPlan = await prisma.trainingPlan.findUnique({

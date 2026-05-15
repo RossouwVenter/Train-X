@@ -105,6 +105,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "athleteId is required" }, { status: 400 });
     }
 
+    // Authorization: coaches can only view their own athletes' logs
+    if (session.user.role === "COACH") {
+      const coachProfile = await prisma.coachProfile.findUnique({
+        where: { userId: session.user.id },
+      });
+      if (!coachProfile) {
+        return NextResponse.json({ error: "Coach profile not found" }, { status: 403 });
+      }
+      const athleteBelongsToCoach = await prisma.athleteProfile.findFirst({
+        where: { id: athleteProfileId, coachId: coachProfile.id },
+      });
+      if (!athleteBelongsToCoach) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
+
     const where: Record<string, unknown> = { athleteId: athleteProfileId };
 
     if (weekStartStr) {
