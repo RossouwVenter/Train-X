@@ -30,7 +30,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
+        console.log("[AUTH] authorize called with email:", credentials?.email);
+
         if (!credentials?.email || !credentials?.password) {
+          console.log("[AUTH] Missing credentials");
           return null;
         }
 
@@ -42,8 +45,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         try {
           user = await prisma.user.findUnique({ where: { email } });
-        } catch {
-          console.log("[AUTH] DB unreachable, using fallback users");
+          console.log("[AUTH] DB query result:", user ? `Found user ${user.id} (${user.role})` : "No user found");
+        } catch (err) {
+          console.log("[AUTH] DB unreachable, using fallback users. Error:", err);
           const fallback = FALLBACK_USERS.find((u) => u.email === email);
           if (fallback) {
             user = { ...fallback };
@@ -51,15 +55,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         if (!user) {
+          console.log("[AUTH] No user found for email:", email);
           return null;
         }
 
         const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+        console.log("[AUTH] Password valid:", isPasswordValid);
 
         if (!isPasswordValid) {
+          console.log("[AUTH] Invalid password for:", email);
           return null;
         }
 
+        console.log("[AUTH] Login successful for:", email, "role:", user.role);
         return {
           id: user.id,
           email: user.email,

@@ -5,6 +5,7 @@ const publicRoutes = ["/", "/login", "/register", "/reset-password"];
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
+  console.log("[MIDDLEWARE]", pathname, "auth:", req.auth ? `user=${req.auth.user?.email} role=${req.auth.user?.role}` : "no session");
 
   // Allow public routes, auth API, and admin API
   if (
@@ -19,6 +20,7 @@ export default auth((req) => {
 
   // Redirect unauthenticated users to login
   if (!token) {
+    console.log("[MIDDLEWARE] No token, redirecting to /login from:", pathname);
     const loginUrl = new URL("/login", req.nextUrl.origin);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
