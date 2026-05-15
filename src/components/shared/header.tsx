@@ -33,7 +33,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-orange-500" />
         </Button>
 
-        <div className="hidden items-center gap-3 sm:flex">
+        <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-amber-600">
             <span className="text-xs font-semibold text-white">C</span>
           </div>

@@ -351,7 +351,8 @@ export default function AthleteDashboard() {
       </Card>
 
       {/* Weekly calendar row */}
-      <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+      <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="grid grid-cols-7 gap-1.5 sm:gap-2 min-w-[320px]">
         {weekDays.map((day, i) => (
           <button
             key={day.name}
@@ -393,6 +394,7 @@ export default function AthleteDashboard() {
             />
           </button>
         ))}
+        </div>
       </div>
 
       {/* Sessions for selected day */}
