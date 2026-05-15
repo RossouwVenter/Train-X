@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Card,
@@ -19,7 +20,7 @@ interface AthleteWeek {
   sessions: { day: string; name: string }[];
 }
 
-// ─── Mock Data ──────────────────────────────────────────────────────────────
+// ─── Constants ──────────────────────────────────────────────────────────────
 
 const DAYS_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -30,59 +31,65 @@ const avatarColors = [
   "from-yellow-500 to-amber-600",
 ];
 
-const mockAthleteWeeks: AthleteWeek[] = [
-  {
-    id: "1",
-    name: "Sam Torres",
-    sessions: [
-      { day: "Mon", name: "Easy Run" },
-      { day: "Tue", name: "Swim Intervals" },
-      { day: "Wed", name: "Bike Tempo" },
-      { day: "Thu", name: "Strength" },
-      { day: "Fri", name: "Brick Session" },
-      { day: "Sat", name: "Long Run" },
-    ],
-  },
-  {
-    id: "2",
-    name: "Maria Chen",
-    sessions: [
-      { day: "Mon", name: "Swim Endurance" },
-      { day: "Tue", name: "Bike Intervals" },
-      { day: "Wed", name: "Easy Run" },
-      { day: "Thu", name: "Swim Speed" },
-      { day: "Fri", name: "Strength" },
-      { day: "Sat", name: "Long Bike" },
-    ],
-  },
-  {
-    id: "3",
-    name: "Jake Wilson",
-    sessions: [
-      { day: "Mon", name: "Run Intervals" },
-      { day: "Wed", name: "Bike Tempo" },
-      { day: "Thu", name: "Swim Drills" },
-      { day: "Sat", name: "Long Run" },
-    ],
-  },
-  {
-    id: "5",
-    name: "Carlos Ruiz",
-    sessions: [
-      { day: "Mon", name: "Swim Technique" },
-      { day: "Tue", name: "Strength" },
-      { day: "Wed", name: "Bike Endurance" },
-      { day: "Thu", name: "Run Tempo" },
-      { day: "Fri", name: "Swim Intervals" },
-      { day: "Sat", name: "Brick Session" },
-      { day: "Sun", name: "Easy Run" },
-    ],
-  },
-];
-
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function PlansPage() {
+  const [athleteWeeks, setAthleteWeeks] = useState<AthleteWeek[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPlans = useCallback(async () => {
+    try {
+      // Get athletes
+      const athleteRes = await fetch("/api/athletes");
+      if (!athleteRes.ok) {
+        setAthleteWeeks([]);
+        return;
+      }
+      const athleteJson = await athleteRes.json();
+      const athletes = athleteJson.data || [];
+
+      if (athletes.length === 0) {
+        setAthleteWeeks([]);
+        return;
+      }
+
+      // Get this week's start date
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+      monday.setHours(0, 0, 0, 0);
+      const weekStart = monday.toISOString().split("T")[0];
+
+      // Fetch sessions for each athlete
+      const weeks: AthleteWeek[] = await Promise.all(
+        athletes.map(async (a: { id: string; name: string }) => {
+          try {
+            const res = await fetch(`/api/sessions?athleteId=${a.id}&weekStart=${weekStart}`);
+            if (res.ok) {
+              const json = await res.json();
+              const sessions = (json.data?.sessions || []).map((s: { dayOfWeek: number; title: string }) => ({
+                day: DAYS_SHORT[s.dayOfWeek],
+                name: s.title,
+              }));
+              return { id: a.id, name: a.name, sessions };
+            }
+          } catch {}
+          return { id: a.id, name: a.name, sessions: [] };
+        })
+      );
+
+      setAthleteWeeks(weeks);
+    } catch {
+      setAthleteWeeks([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPlans();
+  }, [fetchPlans]);
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -99,8 +106,21 @@ export default function PlansPage() {
       </div>
 
       {/* Athlete cards */}
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <p className="text-muted-foreground">Loading plans...</p>
+        </div>
+      ) : athleteWeeks.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16">
+          <Calendar className="h-12 w-12 text-muted-foreground/40" />
+          <p className="mt-4 text-lg font-medium text-foreground">No plans yet</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Add athletes and create sessions to see them here
+          </p>
+        </div>
+      ) : (
       <div className="grid gap-4 sm:grid-cols-2">
-        {mockAthleteWeeks.map((athlete, idx) => {
+        {athleteWeeks.map((athlete, idx) => {
           const initials = athlete.name
             .split(" ")
             .map((n) => n[0])
@@ -154,6 +174,7 @@ export default function PlansPage() {
           );
         })}
       </div>
+      )}
     </div>
   );
 }

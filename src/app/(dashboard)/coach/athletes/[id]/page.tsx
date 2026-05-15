@@ -391,7 +391,8 @@ export default function AthleteProfilePage() {
   const [feedbackRating, setFeedbackRating] = useState<"Great" | "Good" | "Needs Work" | null>(null);
 
   // Weekly sessions state
-  const [weekSessions, setWeekSessions] = useState<WeeklySession[]>(initialWeeklySessions);
+  const [weekSessions, setWeekSessions] = useState<WeeklySession[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(true);
   const [newSessionDay, setNewSessionDay] = useState("");
   const [newSessionName, setNewSessionName] = useState("");
   const [newSessionWorkout, setNewSessionWorkout] = useState("");
@@ -402,29 +403,42 @@ export default function AthleteProfilePage() {
   const [editName, setEditName] = useState("");
   const [editWorkout, setEditWorkout] = useState("");
 
-  const storageKey = `trainx-sessions-${params.id}-week-${weekOffset}`;
+  const getWeekStart = useCallback((offset: number) => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1) + offset * 7);
+    monday.setHours(0, 0, 0, 0);
+    return monday.toISOString().split("T")[0];
+  }, []);
 
-  const persistSessions = useCallback((sessions: WeeklySession[]) => {
+  const loadSessions = useCallback(async () => {
+    setLoadingSessions(true);
     try {
-      localStorage.setItem(storageKey, JSON.stringify(sessions));
-    } catch {}
-  }, [storageKey]);
-
-  // Load from localStorage on mount and when week changes
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(storageKey);
-      if (stored) {
-        setWeekSessions(JSON.parse(stored));
-      } else if (weekOffset === 0) {
-        setWeekSessions(initialWeeklySessions);
+      const weekStart = getWeekStart(weekOffset);
+      const res = await fetch(`/api/sessions?athleteId=${params.id}&weekStart=${weekStart}`);
+      if (res.ok) {
+        const json = await res.json();
+        const sessions: WeeklySession[] = (json.data?.sessions || []).map((s: { id: string; dayOfWeek: number; title: string; notes: string | null }) => ({
+          id: s.id,
+          day: DAYS_OF_WEEK[s.dayOfWeek],
+          name: s.title,
+          workout: s.notes || "",
+        }));
+        setWeekSessions(sessions);
       } else {
         setWeekSessions([]);
       }
     } catch {
-      setWeekSessions(weekOffset === 0 ? initialWeeklySessions : []);
+      setWeekSessions([]);
+    } finally {
+      setLoadingSessions(false);
     }
-  }, [storageKey, weekOffset]);
+  }, [params.id, weekOffset, getWeekStart]);
+
+  useEffect(() => {
+    loadSessions();
+  }, [loadSessions]);
 
   const todayIndex = new Date().getDay();
   const todayName = DAYS_OF_WEEK[todayIndex === 0 ? 6 : todayIndex - 1];
@@ -445,24 +459,53 @@ export default function AthleteProfilePage() {
       name: newSessionName.trim(),
       workout: newSessionWorkout.trim(),
     };
-    const updated = [...weekSessions, session];
-    setWeekSessions(updated);
-    persistSessions(updated);
+    setWeekSessions((prev) => [...prev, session]);
     setNewSessionDay("");
     setNewSessionName("");
     setNewSessionWorkout("");
   };
 
   const deleteSession = (id: string) => {
-    const updated = weekSessions.filter((s) => s.id !== id);
-    setWeekSessions(updated);
-    persistSessions(updated);
+    setWeekSessions((prev) => prev.filter((s) => s.id !== id));
   };
 
-  const handleSaveWeek = () => {
-    persistSessions(weekSessions);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const handleSaveWeek = async () => {
+    const weekStart = getWeekStart(weekOffset);
+    const sessionsPayload = weekSessions.map((s) => ({
+      dayOfWeek: DAYS_OF_WEEK.indexOf(s.day),
+      title: s.name,
+      type: "General",
+      notes: s.workout,
+    }));
+
+    try {
+      const res = await fetch("/api/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          athleteId: params.id,
+          weekStart,
+          sessions: sessionsPayload,
+        }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        const updated: WeeklySession[] = (json.data?.sessions || []).map((s: { id: string; dayOfWeek: number; title: string; notes: string | null }) => ({
+          id: s.id,
+          day: DAYS_OF_WEEK[s.dayOfWeek],
+          name: s.title,
+          workout: s.notes || "",
+        }));
+        setWeekSessions(updated);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      } else {
+        alert("Failed to save sessions");
+      }
+    } catch {
+      alert("Failed to save sessions");
+    }
   };
 
   const openEditSession = (session: WeeklySession) => {
@@ -474,13 +517,13 @@ export default function AthleteProfilePage() {
 
   const handleUpdateSession = () => {
     if (!editingSession || !editName.trim()) return;
-    const updated = weekSessions.map((s) =>
-      s.id === editingSession.id
-        ? { ...s, day: editDay, name: editName.trim(), workout: editWorkout.trim() }
-        : s
+    setWeekSessions((prev) =>
+      prev.map((s) =>
+        s.id === editingSession.id
+          ? { ...s, day: editDay, name: editName.trim(), workout: editWorkout.trim() }
+          : s
+      )
     );
-    setWeekSessions(updated);
-    persistSessions(updated);
     setEditingSession(null);
   };
 

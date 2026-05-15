@@ -41,9 +41,11 @@ interface SidebarProps {
   role: Role;
   open: boolean;
   onClose: () => void;
+  userName?: string;
+  userEmail?: string;
 }
 
-export function Sidebar({ role, open, onClose }: SidebarProps) {
+export function Sidebar({ role, open, onClose, userName, userEmail }: SidebarProps) {
   const pathname = usePathname();
   const navItems = role === "COACH" ? coachNavItems : athleteNavItems;
 
@@ -119,15 +121,15 @@ export function Sidebar({ role, open, onClose }: SidebarProps) {
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-amber-600">
               <span className="text-xs font-semibold text-white">
-                {role === "COACH" ? "C" : "A"}
+                {userName ? userName.charAt(0).toUpperCase() : (role === "COACH" ? "C" : "A")}
               </span>
             </div>
             <div className="flex-1 truncate">
               <p className="truncate text-sm font-medium text-foreground">
-                {role === "COACH" ? "Coach User" : "Athlete User"}
+                {userName || (role === "COACH" ? "Coach" : "Athlete")}
               </p>
               <p className="truncate text-xs text-muted-foreground">
-                {role === "COACH" ? "coach@trainx.com" : "athlete@trainx.com"}
+                {userEmail || ""}
               </p>
             </div>
             <Button

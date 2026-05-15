@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -29,58 +29,8 @@ interface Athlete {
   name: string;
   email: string;
   sport: string;
-  status: "active" | "inactive";
-  completionRate: number;
-  lastActive: string;
+  createdAt: string;
 }
-
-const initialAthletes: Athlete[] = [
-  {
-    id: "1",
-    name: "Sam Torres",
-    email: "sam.torres@email.com",
-    sport: "Track & Field",
-    status: "active",
-    completionRate: 92,
-    lastActive: "2026-05-04",
-  },
-  {
-    id: "2",
-    name: "Maria Chen",
-    email: "maria.chen@email.com",
-    sport: "Swimming",
-    status: "active",
-    completionRate: 85,
-    lastActive: "2026-05-03",
-  },
-  {
-    id: "3",
-    name: "Jake Wilson",
-    email: "jake.wilson@email.com",
-    sport: "CrossFit",
-    status: "active",
-    completionRate: 78,
-    lastActive: "2026-05-01",
-  },
-  {
-    id: "4",
-    name: "Aisha Patel",
-    email: "aisha.patel@email.com",
-    sport: "Yoga",
-    status: "inactive",
-    completionRate: 45,
-    lastActive: "2026-04-10",
-  },
-  {
-    id: "5",
-    name: "Carlos Ruiz",
-    email: "carlos.ruiz@email.com",
-    sport: "Boxing",
-    status: "active",
-    completionRate: 88,
-    lastActive: "2026-05-05",
-  },
-];
 
 const avatarColors = [
   "from-orange-500 to-amber-600",
@@ -104,7 +54,8 @@ function formatLastActive(dateStr: string): string {
 
 export default function AthletesPage() {
   const router = useRouter();
-  const [athletes, setAthletes] = useState<Athlete[]>(initialAthletes);
+  const [athletes, setAthletes] = useState<Athlete[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
@@ -112,41 +63,92 @@ export default function AthletesPage() {
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newSport, setNewSport] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const fetchAthletes = useCallback(async () => {
+    try {
+      const res = await fetch("/api/athletes");
+      if (res.ok) {
+        const json = await res.json();
+        setAthletes(json.data || []);
+      }
+    } catch {
+      // silent fail — list stays empty
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAthletes();
+  }, [fetchAthletes]);
 
   const filteredAthletes = useMemo(
     () =>
       athletes.filter((a) =>
-        a.name.toLowerCase().includes(search.toLowerCase())
+        a.name?.toLowerCase().includes(search.toLowerCase())
       ),
     [athletes, search]
   );
 
-  function handleAddAthlete(e: React.FormEvent) {
+  async function handleAddAthlete(e: React.FormEvent) {
     e.preventDefault();
     if (!newName.trim() || !newEmail.trim() || !newSport.trim()) return;
+    setSubmitting(true);
 
-    const athlete: Athlete = {
-      id: crypto.randomUUID(),
-      name: newName.trim(),
-      email: newEmail.trim(),
-      sport: newSport.trim(),
-      status: "active",
-      completionRate: 0,
-      lastActive: new Date().toISOString().split("T")[0],
-    };
+    try {
+      const res = await fetch("/api/athletes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newName.trim(),
+          email: newEmail.trim(),
+          sport: newSport.trim(),
+        }),
+      });
 
-    setAthletes((prev) => [...prev, athlete]);
-    setNewName("");
-    setNewEmail("");
-    setNewSport("");
-    setDialogOpen(false);
+      if (res.ok) {
+        const json = await res.json();
+        setAthletes((prev) => [...prev, json.data]);
+        setNewName("");
+        setNewEmail("");
+        setNewSport("");
+        setDialogOpen(false);
+      } else {
+        const json = await res.json();
+        alert(json.error || "Failed to add athlete");
+      }
+    } catch {
+      alert("Failed to add athlete");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  function handleRemoveAthlete() {
+  async function handleRemoveAthlete() {
     if (!athleteToRemove) return;
-    setAthletes((prev) => prev.filter((a) => a.id !== athleteToRemove.id));
-    setAthleteToRemove(null);
-    setRemoveDialogOpen(false);
+    setSubmitting(true);
+
+    try {
+      const res = await fetch("/api/athletes", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ athleteProfileId: athleteToRemove.id }),
+      });
+
+      if (res.ok) {
+        setAthletes((prev) => prev.filter((a) => a.id !== athleteToRemove.id));
+      } else {
+        const json = await res.json();
+        alert(json.error || "Failed to remove athlete");
+      }
+    } catch {
+      alert("Failed to remove athlete");
+    } finally {
+      setAthleteToRemove(null);
+      setRemoveDialogOpen(false);
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -219,7 +221,9 @@ export default function AthletesPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">Add Athlete</Button>
+                <Button type="submit" disabled={submitting}>
+                  {submitting ? "Adding..." : "Add Athlete"}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -238,15 +242,18 @@ export default function AthletesPage() {
       </div>
 
       {/* Athletes grid */}
-      {filteredAthletes.length > 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <p className="text-muted-foreground">Loading athletes...</p>
+        </div>
+      ) : filteredAthletes.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredAthletes.map((athlete) => {
-            const initials = athlete.name
+          {filteredAthletes.map((athlete, idx) => {
+            const initials = (athlete.name || "?")
               .split(" ")
               .map((n) => n[0])
               .join("");
-            const colorIndex =
-              parseInt(athlete.id, 10) % avatarColors.length || 0;
+            const colorIndex = idx % avatarColors.length;
 
             return (
               <Card
@@ -273,16 +280,6 @@ export default function AthletesPage() {
                       </CardDescription>
                     </div>
                   </div>
-                  <span
-                    className={cn(
-                      "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                      athlete.status === "active"
-                        ? "bg-emerald-500/10 text-emerald-500"
-                        : "bg-zinc-500/10 text-zinc-400"
-                    )}
-                  >
-                    {athlete.status === "active" ? "Active" : "Inactive"}
-                  </span>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -296,24 +293,11 @@ export default function AthletesPage() {
                   </button>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        Completion rate
-                      </span>
-                      <span className="font-medium">
-                        {athlete.completionRate}%
-                      </span>
-                    </div>
-                    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-secondary">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-500"
-                        style={{ width: `${athlete.completionRate}%` }}
-                      />
-                    </div>
-                  </div>
                   <p className="text-xs text-muted-foreground">
-                    Last active: {formatLastActive(athlete.lastActive)}
+                    {athlete.email}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Added: {formatLastActive(athlete.createdAt)}
                   </p>
                 </CardContent>
               </Card>
@@ -367,8 +351,9 @@ export default function AthletesPage() {
               type="button"
               variant="destructive"
               onClick={handleRemoveAthlete}
+              disabled={submitting}
             >
-              Remove
+              {submitting ? "Removing..." : "Remove"}
             </Button>
           </DialogFooter>
         </DialogContent>

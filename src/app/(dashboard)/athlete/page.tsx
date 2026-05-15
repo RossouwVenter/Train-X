@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -192,7 +192,8 @@ const feedbackRatingConfig = {
 // ── Component ──────────────────────────────────────────────────────
 
 export default function AthleteDashboard() {
-  const [sessions, setSessions] = useState<Session[]>(createMockSessions);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(true);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(() => {
     const today = new Date().getDay();
     return (today + 6) % 7; // convert Sun=0 → Mon=0
@@ -204,6 +205,62 @@ export default function AthleteDashboard() {
   const [completingSessionId, setCompletingSessionId] = useState<string | null>(null);
   const [completeRpe, setCompleteRpe] = useState(5);
   const [completeComment, setCompleteComment] = useState("");
+
+  // ── Load sessions from API ───────────────────────────────────────
+
+  const fetchSessions = useCallback(async () => {
+    setLoadingSessions(true);
+    try {
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
+      monday.setHours(0, 0, 0, 0);
+      const weekStart = monday.toISOString().split("T")[0];
+
+      const res = await fetch(`/api/sessions?athleteId=me&weekStart=${weekStart}`);
+      if (res.ok) {
+        const json = await res.json();
+        const dbSessions = json.data?.sessions || [];
+        if (dbSessions.length > 0) {
+          const mapped: Session[] = dbSessions.map((s: { id: string; dayOfWeek: number; title: string; notes: string | null; exercises: { id: string; name: string; notes: string | null }[] }) => ({
+            id: s.id,
+            name: s.title,
+            dayIndex: s.dayOfWeek,
+            exercises: s.exercises.length > 0
+              ? s.exercises.map((ex) => ({
+                  id: ex.id,
+                  name: ex.name,
+                  workout: ex.notes || "",
+                  completed: false,
+                  rpe: null,
+                  notes: "",
+                }))
+              : [{ id: `${s.id}-ex`, name: s.title, workout: s.notes || "", completed: false, rpe: null, notes: "" }],
+            status: "not_started" as const,
+            estimatedMinutes: 45,
+            overallRpe: null,
+            completionComment: "",
+            coachFeedback: null,
+          }));
+          setSessions(mapped);
+          setLoadingSessions(false);
+          return;
+        }
+      }
+      // Fallback to mock data if no DB sessions
+      setSessions(createMockSessions());
+    } catch {
+      // Fallback to mock data
+      setSessions(createMockSessions());
+    } finally {
+      setLoadingSessions(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSessions();
+  }, [fetchSessions]);
 
   // ── Derived ──────────────────────────────────────────────────────
 
@@ -293,6 +350,16 @@ export default function AthleteDashboard() {
             }
       )
     );
+    // Log to DB (fire and forget)
+    fetch("/api/sessions/log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: completingSessionId,
+        rpe: completeRpe,
+        notes: completeComment || null,
+      }),
+    }).catch(() => {});
     setCompleteDialogOpen(false);
     setCompletingSessionId(null);
   }
