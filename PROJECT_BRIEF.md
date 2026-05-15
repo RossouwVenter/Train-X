@@ -37,12 +37,14 @@ Login → Weekly View → Session Detail → Complete & Comment → View Coach F
 
 ## 3. Tech Stack
 
-- **Frontend:** Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui
+- **Frontend (Web):** Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui
+- **Frontend (Mobile):** Expo SDK 52+, React Native, TypeScript, NativeWind, Expo Router
 - **Backend:** Next.js API Routes (full-stack), Prisma ORM
 - **Database:** PostgreSQL (Supabase or Neon for hosted)
-- **Auth:** NextAuth.js v5 (credentials + OAuth)
+- **Auth:** NextAuth.js v5 (web), JWT Bearer tokens (mobile)
 - **Hosting:** Vercel (frontend + API), Supabase (database)
-- **Testing:** Vitest (unit), Playwright (E2E)
+- **Mobile Distribution:** EAS Build + Submit (App Store + Play Store)
+- **Testing:** Vitest (unit), Playwright (E2E web), Jest + RNTL (mobile unit), Maestro (mobile E2E)
 - **CI/CD:** GitHub Actions
 
 ## 4. Architecture
@@ -102,6 +104,8 @@ Login → Weekly View → Session Detail → Complete & Comment → View Coach F
 | Manager | Sprint planning, coordination, agent creation | ✅ Active |
 | Frontend | UI components, pages, client logic | ✅ Active |
 | Backend | APIs, database, auth, server logic | ✅ Active |
+| Mobile | React Native / Expo screens, mobile navigation, mobile API integration | ✅ Active |
+| MobileQA | Mobile E2E testing, platform verification, accessibility testing | ✅ Active |
 | QA | Testing, bug filing, sign-off | 🔲 On demand |
 | Designer | CSS, design system, accessibility | 🔲 On demand |
 | DevOps | CI/CD, deployment, infrastructure | 🔲 On demand |
@@ -116,6 +120,10 @@ Login → Weekly View → Session Detail → Complete & Comment → View Coach F
 | 3 | Athlete Core | 📋 Planned | Athlete weekly view, session completion, feedback |
 | 4 | Feedback Loop | 📋 Planned | Coach feedback, progress tracking, notifications |
 | 5 | Polish & Deploy | 📋 Planned | UI polish, E2E tests, deployment, QA sign-off |
+| M1 | Mobile Foundation | 📋 Planned | Expo scaffold, auth, API client, shared types |
+| M2 | Mobile Core Screens | 📋 Planned | Coach dashboard, athlete views, session completion |
+| M3 | Mobile Feedback & Polish | 📋 Planned | Feedback loop, progress charts, animations, offline |
+| M4 | Store Submission | 📋 Planned | Production builds, beta testing, App Store + Play Store |
 
 ## 8. Current State
 
