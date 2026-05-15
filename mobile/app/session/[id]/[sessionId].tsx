@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { View, Text, ScrollView, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
@@ -9,9 +10,12 @@ import {
 } from "lucide-react-native";
 import { Badge } from "@/components/ui/Badge";
 import { ExerciseCard } from "@/components/session/ExerciseCard";
+import { CompletionSheet } from "@/components/session/CompletionSheet";
 import { SkeletonCard } from "@/components/ui/SkeletonCard";
-import { usePlan } from "@/hooks/api";
-import type { PlanSession } from "@shared/types";
+import { usePlan, useWeekSessionLogs } from "@/hooks/api";
+import { useLogSession } from "@/hooks/api/useSessions";
+import { useAuth } from "@/hooks/useAuth";
+import type { Mood, PlanSession } from "@shared/types";
 
 export default function SessionDetailScreen() {
   const { id: planId, sessionId } = useLocalSearchParams<{
@@ -19,12 +23,34 @@ export default function SessionDetailScreen() {
     sessionId: string;
   }>();
   const router = useRouter();
+  const { user } = useAuth();
   const { data: plan, isLoading } = usePlan(planId);
+  const { data: logs } = useWeekSessionLogs(user?.id, undefined);
+  const logSession = useLogSession();
+  const [sheetVisible, setSheetVisible] = useState(false);
 
   const session = plan?.sessions?.find((s) => s.id === sessionId);
   const exercises = session?.exercises ?? [];
 
+  // Check if this session is already completed
+  const sessionLog = logs?.find((l) => l.sessionId === sessionId);
+  const isCompleted = !!sessionLog;
+
   const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  function handleComplete(data: { rpe: number; mood: Mood | null; notes: string }) {
+    logSession.mutate(
+      {
+        sessionId: sessionId!,
+        rpe: data.rpe,
+        mood: data.mood ?? undefined,
+        notes: data.notes || undefined,
+      },
+      {
+        onSuccess: () => setSheetVisible(false),
+      }
+    );
+  }
 
   function typeBadgeVariant(
     type: string
@@ -111,7 +137,58 @@ export default function SessionDetailScreen() {
                 />
               ))}
             </View>
+
+            {/* Completed state */}
+            {isCompleted && sessionLog && (
+              <View className="rounded-xl bg-green-900/30 border border-green-800 p-4 mt-4">
+                <View className="flex-row items-center mb-2">
+                  <CheckCircle size={18} color="#22c55e" />
+                  <Text className="text-green-400 font-semibold ml-2">
+                    Completed
+                  </Text>
+                </View>
+                <View className="flex-row items-center flex-wrap gap-2">
+                  {sessionLog.rpe && (
+                    <Badge label={`RPE ${sessionLog.rpe}`} variant="warning" />
+                  )}
+                  {sessionLog.mood && (
+                    <Badge label={sessionLog.mood} variant="info" />
+                  )}
+                  <Text className="text-xs text-gray-500">
+                    {new Date(sessionLog.completedAt).toLocaleDateString()}
+                  </Text>
+                </View>
+                {sessionLog.notes && (
+                  <Text className="text-sm text-gray-400 mt-2">
+                    {sessionLog.notes}
+                  </Text>
+                )}
+              </View>
+            )}
           </ScrollView>
+
+          {/* Fixed bottom: Mark Complete button */}
+          {!isCompleted && session && (
+            <View className="absolute bottom-0 left-0 right-0 px-5 pb-8 pt-4 bg-[#0a0a0a]">
+              <Pressable
+                onPress={() => setSheetVisible(true)}
+                className="rounded-xl bg-blue-600 py-4 items-center"
+              >
+                <Text className="text-white font-bold text-base">
+                  Mark as Complete
+                </Text>
+              </Pressable>
+            </View>
+          )}
+
+          {/* Completion Sheet */}
+          <CompletionSheet
+            visible={sheetVisible}
+            onClose={() => setSheetVisible(false)}
+            onSubmit={handleComplete}
+            isSubmitting={logSession.isPending}
+            sessionTitle={session?.title ?? ""}
+          />
         )}
       </SafeAreaView>
     </>

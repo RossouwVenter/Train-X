@@ -7,6 +7,8 @@ import type { PlanSession, SessionExercise } from "@shared/types";
 interface SessionCardProps {
   session: PlanSession;
   isCompleted?: boolean;
+  rpe?: number | null;
+  onPress?: () => void;
 }
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -25,14 +27,14 @@ function formatExercise(ex: SessionExercise): string {
   return detail;
 }
 
-export function SessionCard({ session, isCompleted }: SessionCardProps) {
+export function SessionCard({ session, isCompleted, rpe, onPress }: SessionCardProps) {
   const [expanded, setExpanded] = useState(false);
   const exercises = session.exercises ?? [];
   const dayLabel = DAY_LABELS[session.dayOfWeek - 1] ?? `Day ${session.dayOfWeek}`;
 
   return (
     <Pressable
-      onPress={() => setExpanded((prev) => !prev)}
+      onPress={onPress ?? (() => setExpanded((prev) => !prev))}
       className="rounded-xl bg-neutral-900 p-4 mb-3 active:bg-neutral-800"
     >
       {/* Header */}
@@ -55,7 +57,10 @@ export function SessionCard({ session, isCompleted }: SessionCardProps) {
         </View>
 
         <View className="flex-row items-center">
-          <Text className="text-xs text-gray-500 mr-2">
+          {isCompleted && rpe && (
+            <Badge label={`RPE ${rpe}`} variant="warning" />
+          )}
+          <Text className="text-xs text-gray-500 mr-2 ml-2">
             {exercises.length} {exercises.length === 1 ? "exercise" : "exercises"}
           </Text>
           {expanded ? (
