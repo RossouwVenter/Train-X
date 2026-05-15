@@ -1,17 +1,17 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { NextRequest, NextResponse } from "next/server";
+import { authenticateRequest } from "@/lib/mobile-auth";
 import { prisma } from "@/lib/prisma";
 
 // GET /api/athletes — list athletes for the authenticated coach
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id || session.user.role !== "COACH") {
+    const user = await authenticateRequest(request);
+    if (!user || user.role !== "COACH") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const coachProfile = await prisma.coachProfile.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       include: {
         athletes: {
           include: {
@@ -45,10 +45,10 @@ export async function GET() {
 }
 
 // POST /api/athletes — create a new athlete under the authenticated coach
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id || session.user.role !== "COACH") {
+    const user = await authenticateRequest(request);
+    if (!user || user.role !== "COACH") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
     }
 
     const coachProfile = await prisma.coachProfile.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
     });
 
     if (!coachProfile) {
@@ -145,10 +145,10 @@ export async function POST(request: Request) {
 }
 
 // DELETE /api/athletes — remove an athlete (deletes user + profile)
-export async function DELETE(request: Request) {
+export async function DELETE(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id || session.user.role !== "COACH") {
+    const user = await authenticateRequest(request);
+    if (!user || user.role !== "COACH") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -159,7 +159,7 @@ export async function DELETE(request: Request) {
     }
 
     const coachProfile = await prisma.coachProfile.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
     });
 
     if (!coachProfile) {

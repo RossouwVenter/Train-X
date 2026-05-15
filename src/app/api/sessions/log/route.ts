@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { authenticateRequest } from "@/lib/mobile-auth";
 import { prisma } from "@/lib/prisma";
 
 // POST /api/sessions/log — athlete logs a completed session
 // Body: { sessionId, rpe, mood, notes }
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id || session.user.role !== "ATHLETE") {
+    const user = await authenticateRequest(request);
+    if (!user || user.role !== "ATHLETE") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     const athleteProfile = await prisma.athleteProfile.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
     });
 
     if (!athleteProfile) {
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       data: {
         sessionId,
         athleteId: athleteProfile.id,
-        userId: session.user.id,
+        userId: user.id,
         completedAt: new Date(),
         rpe: rpe || null,
         mood: mood || null,
@@ -81,8 +81,8 @@ export async function POST(request: NextRequest) {
 // Returns session logs for an athlete for a specific week
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
+    const user = await authenticateRequest(request);
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -91,9 +91,9 @@ export async function GET(request: NextRequest) {
     const weekStartStr = searchParams.get("weekStart");
 
     // If athlete role, use their own profile
-    if (session.user.role === "ATHLETE") {
+    if (user.role === "ATHLETE") {
       const profile = await prisma.athleteProfile.findUnique({
-        where: { userId: session.user.id },
+        where: { userId: user.id },
       });
       if (!profile) {
         return NextResponse.json({ error: "Profile not found" }, { status: 404 });
@@ -106,9 +106,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Authorization: coaches can only view their own athletes' logs
-    if (session.user.role === "COACH") {
+    if (user.role === "COACH") {
       const coachProfile = await prisma.coachProfile.findUnique({
-        where: { userId: session.user.id },
+        where: { userId: user.id },
       });
       if (!coachProfile) {
         return NextResponse.json({ error: "Coach profile not found" }, { status: 403 });
