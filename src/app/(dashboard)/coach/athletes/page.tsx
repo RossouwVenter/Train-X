@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { UserPlus, Search, Users } from "lucide-react";
+import { UserPlus, Search, Users, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Athlete {
@@ -107,6 +107,8 @@ export default function AthletesPage() {
   const [athletes, setAthletes] = useState<Athlete[]>(initialAthletes);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
+  const [athleteToRemove, setAthleteToRemove] = useState<Athlete | null>(null);
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newSport, setNewSport] = useState("");
@@ -138,6 +140,13 @@ export default function AthletesPage() {
     setNewEmail("");
     setNewSport("");
     setDialogOpen(false);
+  }
+
+  function handleRemoveAthlete() {
+    if (!athleteToRemove) return;
+    setAthletes((prev) => prev.filter((a) => a.id !== athleteToRemove.id));
+    setAthleteToRemove(null);
+    setRemoveDialogOpen(false);
   }
 
   return (
@@ -274,6 +283,17 @@ export default function AthletesPage() {
                   >
                     {athlete.status === "active" ? "Active" : "Inactive"}
                   </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAthleteToRemove(athlete);
+                      setRemoveDialogOpen(true);
+                    }}
+                    className="ml-2 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                    title="Remove athlete"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div>
@@ -323,6 +343,36 @@ export default function AthletesPage() {
           )}
         </div>
       )}
+
+      {/* Remove Athlete Confirmation Dialog */}
+      <Dialog open={removeDialogOpen} onOpenChange={setRemoveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Athlete</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove{" "}
+              <span className="font-semibold">{athleteToRemove?.name}</span> from
+              your roster? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRemoveDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleRemoveAthlete}
+            >
+              Remove
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
