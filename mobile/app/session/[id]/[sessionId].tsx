@@ -11,7 +11,10 @@ import {
 import { Badge } from "@/components/ui/Badge";
 import { ExerciseCard } from "@/components/session/ExerciseCard";
 import { CompletionSheet } from "@/components/session/CompletionSheet";
+import { FeedbackSection } from "@/components/session/FeedbackSection";
 import { SkeletonCard } from "@/components/ui/SkeletonCard";
+import { AnimatedListItem } from "@/components/ui/AnimatedListItem";
+import { HapticPressable } from "@/components/ui/HapticPressable";
 import { usePlan, useWeekSessionLogs } from "@/hooks/api";
 import { useLogSession } from "@/hooks/api/useSessions";
 import { useAuth } from "@/hooks/useAuth";
@@ -130,11 +133,12 @@ export default function SessionDetailScreen() {
             </Text>
             <View className="rounded-xl bg-neutral-900 px-4">
               {exercises.map((ex, i) => (
-                <ExerciseCard
-                  key={ex.id}
-                  exercise={ex}
-                  index={i}
-                />
+                <AnimatedListItem key={ex.id} index={i}>
+                  <ExerciseCard
+                    exercise={ex}
+                    index={i}
+                  />
+                </AnimatedListItem>
               ))}
             </View>
 
@@ -165,19 +169,28 @@ export default function SessionDetailScreen() {
                 )}
               </View>
             )}
+
+            {/* Feedback section — show when completed */}
+            {isCompleted && sessionLog && (
+              <FeedbackSection
+                sessionLogId={sessionLog.id}
+                canPost={user?.role === "COACH"}
+              />
+            )}
           </ScrollView>
 
           {/* Fixed bottom: Mark Complete button */}
           {!isCompleted && session && (
             <View className="absolute bottom-0 left-0 right-0 px-5 pb-8 pt-4 bg-[#0a0a0a]">
-              <Pressable
+              <HapticPressable
+                haptic="medium"
                 onPress={() => setSheetVisible(true)}
                 className="rounded-xl bg-blue-600 py-4 items-center"
               >
                 <Text className="text-white font-bold text-base">
                   Mark as Complete
                 </Text>
-              </Pressable>
+              </HapticPressable>
             </View>
           )}
 
